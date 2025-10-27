@@ -7,8 +7,8 @@ on:
 
 env:
   GCP_PROJECT: ${{ vars.GCP_PROJECT }}
-  GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
-  GKE_ZONE: ${{ vars.GKE_ZONE }}
+  GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}         # Example: gke-demo-cluster
+  GKE_ZONE: ${{ vars.GKE_ZONE }}               # Example: us-central1-a
   ARTIFACT_REGISTRY_LOCATION: ${{ vars.ARTIFACT_REGISTRY_LOCATION }}
   ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
   IMAGE_NAME: ${{ vars.IMAGE_NAME }}
@@ -23,24 +23,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Authenticate to Google Cloud using service account key
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      # Step 3: Setup gcloud CLI
+      # Step 2: Setup Google Cloud CLI
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
 
-      # Step 4: Configure Docker for Artifact Registry
+      # Step 3: Configure Docker for Artifact Registry
       - name: Configure Docker auth
         run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev --quiet
 
-      # Step 5: Build and push Docker image
+      # Step 4: Build and Push Docker image to Artifact Registry
       - name: Build and Push Docker image to Artifact Registry
         run: |
           IMAGE_URI=${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
@@ -49,14 +44,19 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      # Step 6: Get GKE credentials
+      # Step 5: Get GKE credentials
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
             --zone ${{ env.GKE_ZONE }} \
             --project ${{ env.GCP_PROJECT }}
 
-      # Step 7: Deploy app and MongoDB
+      # Step 6: Install GKE Auth Plugin (fix for kubectl authentication)
+      - name: Install GKE Auth Plugin
+        run: |
+          gcloud components install gke-gcloud-auth-plugin --quiet
+
+      # Step 7: Deploy Mongo and App to GKE
       - name: Deploy Mongo and App to GKE
         run: |
           kubectl apply -f k8s/mongo-deployment.yaml
