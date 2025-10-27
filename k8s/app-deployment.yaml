@@ -1,22 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mongo-app
+  name: app-deployment
+  labels:
+    app: fastapi-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mongo-app
+      app: fastapi-app
   template:
     metadata:
       labels:
-        app: mongo-app
+        app: fastapi-app
     spec:
       containers:
-      - name: mongo-app
-        image: PLACEHOLDER_IMAGE   # will be replaced by CI to the pushed image
-        env:
-        - name: MONGO_URI
-          value: "mongodb://mongo:27017/testdb"
-        ports:
-        - containerPort: 8080
+        - name: fastapi-container
+          image: us-central1-docker.pkg.dev/sirisha-test1/mongo-repo/mongo-gke-demo:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MONGO_URL
+              value: "mongodb://mongo-service:27017/testdb"
