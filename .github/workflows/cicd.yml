@@ -23,19 +23,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Setup Google Cloud CLI
+      # Step 2: Authenticate to Google Cloud using service account key
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      # Step 3: Setup gcloud CLI
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
           export_default_credentials: true
 
-      # Step 3: Configure Docker for Artifact Registry
+      # Step 4: Configure Docker for Artifact Registry
       - name: Configure Docker auth
         run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev --quiet
 
-      # Step 4: Build and push Docker image
+      # Step 5: Build and push Docker image
       - name: Build and Push Docker image to Artifact Registry
         run: |
           IMAGE_URI=${{ env.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ env.GCP_PROJECT }}/${{ env.ARTIFACT_REGISTRY_REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
@@ -44,14 +49,14 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      # Step 5: Get GKE credentials
+      # Step 6: Get GKE credentials
       - name: Get GKE credentials
         run: |
           gcloud container clusters get-credentials ${{ env.GKE_CLUSTER }} \
             --zone ${{ env.GKE_ZONE }} \
             --project ${{ env.GCP_PROJECT }}
 
-      # Step 6: Deploy to GKE
+      # Step 7: Deploy app and MongoDB
       - name: Deploy Mongo and App to GKE
         run: |
           kubectl apply -f k8s/mongo-deployment.yaml
@@ -59,12 +64,12 @@ jobs:
           kubectl apply -f k8s/app-deployment.yaml
           kubectl apply -f k8s/app-service.yaml
 
-      # Step 7: Verify Deployment Rollouts
+      # Step 8: Verify Deployment Rollouts
       - name: Verify deployment rollout
         run: |
           kubectl rollout status deployment/mongo-deployment
           kubectl rollout status deployment/app-deployment
 
-      # Step 8: Get Service Info
+      # Step 9: Get Service Info
       - name: Get service info
         run: kubectl get svc -o wide
